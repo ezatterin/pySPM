@@ -50,7 +50,7 @@ class Bruker:
         length = rows*cols
         bpp = byte_length // length
         return bpp
-        
+
     def _get_raw_layer(self, i):
         """
         Internal function to retrieve raw data of a layer
@@ -62,7 +62,7 @@ class Bruker:
         length = rows*cols
         bpp = byte_length // length
         byte_length = length * bpp
-        
+
         self.file.seek(off)
         return np.array(
             struct.unpack("<"+str(length)+{2:'h',4:'i',8:'q'}[bpp], self.file.read(byte_length)),
@@ -71,7 +71,12 @@ class Bruker:
     def list_channels(self, encoding='latin1'):
         print("Channels")
         print("========")
-        for x in [z[b'@2:Image Data'][0] for z in self.layers]:
+        for z in self.layers:
+            try:
+                x = z[b'@2:Image Data'][0]
+            except KeyError:
+                x = z[b'@3:Image Data'][0]
+        # for x in [z[b'@2:Image Data'][0] for z in self.layers]:
             print("\t"+x.decode(encoding))
 
     def get_channel(self, channel="Height Sensor", backward=False, corr=None, debug=False, encoding='latin1', lazy=True):
@@ -79,7 +84,10 @@ class Bruker:
         Load the SPM image contained in a channel
         """
         for i in range(len(self.layers)):
-            layer_name = self.layers[i][b'@2:Image Data'][0].decode(encoding)
+            try:
+                layer_name = self.layers[i][b'@2:Image Data'][0].decode(encoding)
+            except KeyError:
+                layer_name = self.layers[i][b'@3:Image Data'][0].decode(encoding)
             result = re.match(
                 r'([^ ]+) \[([^\]]*)\] "([^"]*)"', layer_name).groups()
             if result[2] == channel:
@@ -99,7 +107,7 @@ class Bruker:
                         if debug:
                             print(result)
                         scale = float(result[1])/256**self._get_bpp(i)
-                        
+
                         result2 = self.scanners[0][b'@'+result[0].encode(encoding)][0].split()
                         if debug:
                             print("result2", result2)
